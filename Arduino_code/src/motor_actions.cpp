@@ -51,11 +51,11 @@ void motorControl(Motor& motor, double pid_output)
 {
     int pwm_val = (int)abs(pid_output);
     int pwm_val_scaled = constrain(pwm_val * speed_scaling, 0, 255);
-    if (pwm_val_scaled > 5 && pwm_val_scaled < 45)
+    if (pwm_val_scaled > 1 && pwm_val_scaled < 30)
 	{
-        pwm_val_scaled = 45;
+        pwm_val_scaled = 30;
 	}
-    else if (pwm_val_scaled <= 5)
+    else if (pwm_val_scaled <= 1)
 	{
         pwm_val_scaled = 0;
 	}
