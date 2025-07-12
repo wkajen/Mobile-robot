@@ -86,12 +86,13 @@ PID rightFrontSpeedPID(&motor_speed.smooth.right_front, &motor_speed.out.right_f
 void apply_velocity(float v_x, float v_y, float w); 
 void process_line(String line);
 void receive_data();
+void send_data(double left_front_speed, double right_front_speed, double left_rear_speed, double right_rear_speed, int distance);
 
-// zmienne globalne (widziane tylko w main)
+// zmienne globalne (ale widziane tylko w main)
 unsigned int buff_idx = 0;
 int distance{0};
-unsigned long start_time{0};
 unsigned long last_send_time{0};
+unsigned long last_count_time{0};
 unsigned long current_time{0};
 String input_buffer = "";
 
@@ -123,7 +124,7 @@ void setup()
 	rightFrontSpeedPID.SetOutputLimits(-255, 255);
 
 	delay(250);
-	last_send_time = start_time = millis();  // inicjalizacyjny pomiar czasu
+	last_send_time = last_count_time = millis();  // inicjalizacyjny pomiar czasu
 	distance = getDistance();			// inicjalizacyjny pomiar odległości
 	// Serial.println("ARDUINO_READY");	// sygnał gotowości dla RPi
 }
@@ -131,7 +132,7 @@ void setup()
 void loop()
 {
 	current_time = millis();
-	double delta_time = (double)current_time - last_send_time;
+	// double delta_time = (double)current_time - last_send_time;
 
 	// zliczanie liczby imuplsów na każdym enkoderze
 	countPulses(encoder_left_rear_pin, counter.left_rear, encoder_state.left_rear);
@@ -146,34 +147,34 @@ void loop()
 	}
 	
 	// Wysyłanie danych w ustalonym interwale czasowym
-	if(delta_time >= send_interval_ms)
+	if(current_time - last_count_time >= count_interval_ms)
 	{
 		// przeliczenie ilości pulsów enkodera na prędkość liniową [cm/s]
 		if (motor_speed.set.left_rear < -1.0)
-			motor_speed.raw.left_rear = -(double)counter.left_rear * tick_mul * (1000.0/send_interval_ms);
+			motor_speed.raw.left_rear = -(double)counter.left_rear * tick_mul * (1000.0/count_interval_ms);
 		else if (motor_speed.set.left_rear > 1.0)
-			motor_speed.raw.left_rear = (double)counter.left_rear * tick_mul * (1000.0/send_interval_ms);
+			motor_speed.raw.left_rear = (double)counter.left_rear * tick_mul * (1000.0/count_interval_ms);
 		else
 			motor_speed.raw.left_rear = 0.0;
 		if (motor_speed.set.right_rear < -1.0)
-			motor_speed.raw.right_rear = -(double)counter.right_rear * tick_mul * (1000.0/send_interval_ms);
+			motor_speed.raw.right_rear = -(double)counter.right_rear * tick_mul * (1000.0/count_interval_ms);
 		else if (motor_speed.set.right_rear > 1.0)
 		{
-			motor_speed.raw.right_rear = (double)counter.right_rear * tick_mul * (1000.0/send_interval_ms); 
+			motor_speed.raw.right_rear = (double)counter.right_rear * tick_mul * (1000.0/count_interval_ms); 
 			motor_speed.raw.right_rear -= 2.0;
 		}
 		else
 			motor_speed.raw.right_rear = 0.0;
 		if (motor_speed.set.left_front < -1.0)
-			motor_speed.raw.left_front = -(double)counter.left_front * tick_mul * (1000.0/send_interval_ms); 
+			motor_speed.raw.left_front = -(double)counter.left_front * tick_mul * (1000.0/count_interval_ms); 
 		else if (motor_speed.set.left_front > 1.0)
-			motor_speed.raw.left_front = (double)counter.left_front * tick_mul * (1000.0/send_interval_ms); 
+			motor_speed.raw.left_front = (double)counter.left_front * tick_mul * (1000.0/count_interval_ms); 
 		else
 			motor_speed.raw.left_front = 0.0;
 		if (motor_speed.set.right_front < -1.0)
-			motor_speed.raw.right_front = -(double)counter.right_front * tick_mul * (1000.0/send_interval_ms);
+			motor_speed.raw.right_front = -(double)counter.right_front * tick_mul * (1000.0/count_interval_ms);
 		else if (motor_speed.set.right_front > 1.0)
-			motor_speed.raw.right_front = (double)counter.right_front * tick_mul * (1000.0/send_interval_ms); 
+			motor_speed.raw.right_front = (double)counter.right_front * tick_mul * (1000.0/count_interval_ms); 
 		else
 			motor_speed.raw.right_front = 0.0;
 
@@ -214,33 +215,33 @@ void loop()
 		counter.left_rear = counter.right_rear = counter.left_front = counter.right_front = 0;
 
 		distance = getDistance();
-
-		// wysłanie danych do RPi
-		send_data(motor_speed.smooth.left_front, motor_speed.smooth.right_front, motor_speed.smooth.left_rear, motor_speed.smooth.right_rear, distance);
-		// send_data(distance);
-
-		last_send_time = millis();
-
-		// obliczenie aktualnych poprawek PID
-		// leftRearSpeedPID.Compute();
-		// rightRearSpeedPID.Compute();
-		// leftFrontSpeedPID.Compute();
-		// rightFrontSpeedPID.Compute();
+		// Serial.print("Count dt = ");
+		// Serial.println(current_time - last_count_time);
+		last_count_time = current_time;
 	}
 
-	// // obliczenie aktualnych poprawek PID
+	if(current_time - last_send_time >= send_interval_ms)
+	{
+		// wysłanie danych do RPi
+		send_data(motor_speed.smooth.left_front, motor_speed.smooth.right_front, motor_speed.smooth.left_rear, motor_speed.smooth.right_rear, distance);
+		// Serial.print("Send dt = ");
+		// Serial.println(current_time - last_send_time);
+		last_send_time = current_time;
+	}
+
+	if (distance < dist_thr)
+	{
+		motor_speed.smooth.left_rear = 0.0;
+		motor_speed.smooth.right_rear = 0.0;
+		motor_speed.smooth.left_front = 0.0;
+		motor_speed.smooth.right_front = 0.0;
+	}
+
+	// obliczenie aktualnych poprawek PID
 	leftRearSpeedPID.Compute();
 	rightRearSpeedPID.Compute();
 	leftFrontSpeedPID.Compute();
 	rightFrontSpeedPID.Compute();
-
-	if (distance < dist_thr)
-	{
-		motor_speed.out.left_rear = 0.0;
-		motor_speed.out.right_rear = 0.0;
-		motor_speed.out.left_front = 0.0;
-		motor_speed.out.right_front = 0.0;
-	}
 
 	// wysterowanie silników
 	motorControl(motor_left_rear, motor_speed.out.left_rear);
@@ -301,13 +302,17 @@ void process_line(String line)
     }
 }
 
-void apply_velocity(float v_x, float v_y, float w_angular)
+void apply_velocity(float v_x_m, float v_y_m, float w_angular_rad)
 {
-    double k = r_length + r_width;
+    double k = r_length + r_width;  // [m]
 
-    motor_speed.set.left_front = v_x - v_y - k * w_angular;   // [cm/s]
-    motor_speed.set.right_front = v_x + v_y + k * w_angular;  // [cm/s]
-    motor_speed.set.left_rear = v_x + v_y - k * w_angular;    // [cm/s]
-    motor_speed.set.right_rear = v_x - v_y + k * w_angular;   // [cm/s]
+    float left_front_speed = v_x_m - v_y_m - k * w_angular_rad;   // [m/s]
+    float right_front_speed = v_x_m + v_y_m + k * w_angular_rad;  // [m/s]
+    float left_rear_speed = v_x_m + v_y_m - k * w_angular_rad;    // [m/s]
+    float right_rear_speed = v_x_m - v_y_m + k * w_angular_rad;   // [m/s]
+
+    motor_speed.set.left_front = left_front_speed * 100.0;	      // [cm/s]
+    motor_speed.set.right_front = right_front_speed * 100.0;	  // [cm/s]
+    motor_speed.set.left_rear = left_rear_speed * 100.0;	      // [cm/s]
+    motor_speed.set.right_rear = right_rear_speed * 100.0;	      // [cm/s]
 }
- 

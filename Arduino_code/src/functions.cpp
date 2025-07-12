@@ -76,24 +76,23 @@ void countPulses(int encoder_pin, unsigned int &pulses_num, bool &last_state)
     last_state = current_state;
 }
 
-void send_data(double left_front_speed, double right_front_speed, double left_rear_speed, double right_rear_speed, double distance) 
+void send_data(double left_front_speed_cm, double right_front_speed_cm, double left_rear_speed_cm, double right_rear_speed_cm, int distance_cm) 
 {
+	double left_front_speed_m = left_front_speed_cm / 100.0;
+	double right_front_speed_m = right_front_speed_cm / 100.0;
+	double left_rear_speed_m = left_rear_speed_cm / 100.0;
+	double right_rear_speed_m = right_rear_speed_cm / 100.0;
+	double distance_m = distance_cm / 100.0;
+
     Serial.print("S:");
-    Serial.print(left_front_speed);
+    Serial.print(left_front_speed_m);
     Serial.print(",");
-    Serial.print(right_front_speed);
+    Serial.print(right_front_speed_m);
     Serial.print(",");
-    Serial.print(left_rear_speed);
+    Serial.print(left_rear_speed_m);
     Serial.print(",");
-    Serial.print(right_rear_speed);
+    Serial.print(right_rear_speed_m);
     Serial.print(",");
-    Serial.print(distance);
+    Serial.print(distance_m);
     Serial.println();
 }
-
-// void send_data(double distance)
-// {
-//     Serial.print("D:");
-//     Serial.print(distance);
-//     Serial.println();
-// }

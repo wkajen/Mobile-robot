@@ -23,7 +23,8 @@ MotorInterfaceNode::MotorInterfaceNode()
     wheel_speed_pub_ = this->create_publisher<sensor_msgs::msg::JointState>("/wheel_speeds", 10);
     distance_pub_ = this->create_publisher<sensor_msgs::msg::Range>("/distance_sensor", 10);
 
-    timer_ = this->create_wall_timer(200ms, std::bind(&MotorInterfaceNode::readSerialData, this));
+    // timer_ = this->create_wall_timer(200ms, std::bind(&MotorInterfaceNode::readSerialData, this));
+    timer_ = this->create_wall_timer(50ms, std::bind(&MotorInterfaceNode::readSerialData, this));
 }
 
 void MotorInterfaceNode::handshake()
@@ -69,19 +70,6 @@ void MotorInterfaceNode::readSerialData()
         std::string line;
         std::getline(is, line);
 
-        // if (!is_arduino_ready_) 
-        // {
-        //     if (line == "READY") 
-        //     {
-        //         RCLCPP_INFO(this->get_logger(), "Handshake complete with Arduino.");
-        //         is_arduino_ready_ = true;
-        //     } else 
-        //     {
-        //         RCLCPP_WARN(this->get_logger(), "Waiting for READY, got: %s", line.c_str());
-        //     }
-        //     return;
-        // }
-
         // Handle wheel speeds
         if (line.rfind("S:", 0) == 0) 
         {
@@ -103,7 +91,8 @@ void MotorInterfaceNode::readSerialData()
                 double s4 = std::stod(parts[3]);
 
                 auto msg = sensor_msgs::msg::JointState();
-                msg.header.stamp = this->now();
+                // msg.header.stamp = this->now();
+                msg.header.stamp = this->get_clock()->now();
                 msg.name = {"wheel_FL", "wheel_FR", "wheel_RL", "wheel_RR"};
                 msg.velocity = {s1, s2, s3, s4};
                 wheel_speed_pub_->publish(msg);
@@ -114,7 +103,8 @@ void MotorInterfaceNode::readSerialData()
                 double distance = std::stod(parts[4]);
 
                 auto msg = sensor_msgs::msg::Range();
-                msg.header.stamp = this->now();
+                // msg.header.stamp = this->now();
+                msg.header.stamp = this->get_clock()->now();
                 msg.header.frame_id = "distance_sensor";
                 msg.radiation_type = sensor_msgs::msg::Range::ULTRASOUND;
                 // msg.min_range = 2;   // [cm]

@@ -2,7 +2,8 @@
 #define CONFIG_HPP
 
 extern const unsigned int encoder_res; // rozdzielczość enkodera
-extern const unsigned int send_interval_ms;  // czas, w którym są zliczane imoulsy enkodera
+extern const unsigned int count_interval_ms;  // okres czasu, w którym są zliczane impulsy enkodera
+extern const unsigned int send_interval_ms;  // okres czasu, w jakim są wysyłane dane do RPi
 extern const unsigned int pid_interval;      // czas próbkowania regulatora PID
 extern const double wheel_radius; // promień koła [m]
 extern const double speed_scaling;  // skalowanie prędkości do odpowiednich zakresów
