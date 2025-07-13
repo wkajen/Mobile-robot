@@ -66,9 +66,6 @@ bool AHT10Sensor::readSensor(float& temperature, float& humidity)
     uint32_t raw_hum = (data[1] << 12) | (data[2] << 4) | (data[3] >> 4);
     humidity = (raw_hum / 1048576.0) * 100.0;
 
-    // if (humidity > AHT10Sensor::hum_offset)
-    //     humidity -= AHT10Sensor::hum_offset;
-
     return true;
 }
 

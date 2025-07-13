@@ -17,7 +17,7 @@ GPIO::GPIO(int gpio_chip, int pin_number)
         export_file << pin_number;
     }
 
-    // Set direction to output
+    // Ustawienie kierunku outputu
     std::string direction_path = "/sys/class/gpio/gpio" + std::to_string(pin_) + "/direction";
     std::ofstream direction_file(direction_path);
     if (direction_file) {
@@ -30,41 +30,53 @@ GPIO::GPIO(int gpio_chip, int pin_number)
 
 GPIO::~GPIO() {
     stop_thread_ = true;
-    if (control_thread_.joinable()) {
+    if (control_thread_.joinable()) 
+    {
         control_thread_.join();
     }
 
     std::ofstream unexport_file("/sys/class/gpio/unexport");
-    if (unexport_file) {
+    if (unexport_file) 
+    {
         unexport_file << pin_;
     }
 }
 
-void GPIO::set(bool value) {
-    blinking_ = false;  // Stop blinking
+void GPIO::set(bool value) 
+{
+    blinking_ = false;  // zatrzymanie mrugania diodą
     writeValue(value);
 }
 
-void GPIO::startBlinking() {
+void GPIO::startBlinking() 
+{
     blinking_ = true;
 }
 
-void GPIO::writeValue(bool value) {
+void GPIO::writeValue(bool value) 
+{
     std::ofstream value_file(value_path_);
-    if (value_file) {
+    if (value_file) 
+    {
         value_file << (value ? "1" : "0");
     }
 }
 
-void GPIO::blinkLoop() {
+void GPIO::blinkLoop() 
+{
     bool state = false;
-    while (!stop_thread_) {
-        if (blinking_) {
+    while (!stop_thread_) 
+    {
+        if (blinking_) 
+        {
             state = !state;
             writeValue(state);
-            std::this_thread::sleep_for(500ms);  // 1Hz blinking (toggle every 0.5s)
-        } else {
-            if (state) {
+            std::this_thread::sleep_for(500ms);  // mruganie 1Hz (zmiana co 0.5s)
+        } 
+        else 
+        {
+            if (state) 
+            {
                 writeValue(false);
                 state = false;
             }
@@ -76,15 +88,16 @@ void GPIO::blinkLoop() {
 // ------------- AHT10Node Class --------------
 
 AHT10Node::AHT10Node()
-: Node("aht10_sensor_node"),
-  sensor_("/dev/i2c-1", 0x38),
-  led_gpio_(4, 22)
+  : Node("aht10_sensor_node"),
+    sensor_("/dev/i2c-1", 0x38),
+    led_gpio_(4, 22)
 {
     publisher_ = this->create_publisher<sensor_msgs::msg::Temperature>("temperature", 10);
     timer_ = this->create_wall_timer(2s, std::bind(&AHT10Node::readAndPublish, this));
 }
 
-void AHT10Node::readAndPublish() {
+void AHT10Node::readAndPublish() 
+{
     auto [temp, hum] = sensor_.getData();
 
     auto msg = sensor_msgs::msg::Temperature();
@@ -96,9 +109,12 @@ void AHT10Node::readAndPublish() {
 
     RCLCPP_INFO(this->get_logger(), "Temperature: %.2f °C, Humidity: %.2f %%", temp, hum);
 
-    if (temp > 30.0) {
+    if (temp > 30.0) 
+    {
         led_gpio_.startBlinking();
-    } else {
+    } 
+    else 
+    {
         led_gpio_.set(false);  // Turn off if below threshold
     }
 }

@@ -1,5 +1,5 @@
-#ifndef ODOMETRY_NODE_HPP
-#define ODOMETRY_NODE_HPP
+#ifndef ODOMETRY_NODE_HPP_
+#define ODOMETRY_NODE_HPP_
 
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/joint_state.hpp>
@@ -23,4 +23,4 @@ private:
     rclcpp::Time last_time_;
 };
 
-#endif // ODOMETRY_NODE_HPP
+#endif // ODOMETRY_NODE_HPP_

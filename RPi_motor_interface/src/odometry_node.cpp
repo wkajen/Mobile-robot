@@ -23,16 +23,14 @@ OdometryNode::OdometryNode()
 
             double dt = (current_time - last_time_).seconds();
 
-            // w wiadomości są kolejno koła: wheel_FL, wheel_FR, wheel_RL, wheel_RR 
-            double v_l = (msg->velocity[0] + msg->velocity[2]) / 2.0;
-            double v_r = (msg->velocity[1] + msg->velocity[3]) / 2.0;
+            // w wiadomości msg->velocity są kolejno koła: 0:wheel_FL, 1:wheel_FR, 2:wheel_RL, 3:wheel_RR 
+            double v_l = (msg->velocity[0] + msg->velocity[2]) / 2.0;   // średnia prędkość lewych kół
+            double v_r = (msg->velocity[1] + msg->velocity[3]) / 2.0;   // średnia prędkość prawych kół
 
-            // Prędkość liniowa i kątowa robota -> uśrednienie i przeliczenie z cm/s na m/s
-            // (bo mam już prędkości liniowe a nie obrotowe, wtedy byłoby * radius?)
-            double v = (v_r + v_l) / (2.0 * 100.0);
-            double omega = (v_r - v_l) / (wheel_base * 100.0);
+            double v = (v_r + v_l) / (2.0);                             // średnia prędkość liniowa robota [m/s]
+            double omega = (v_r - v_l) / (wheel_base);                  // średnia prędkość kątowa robota [rad/s]
 
-            // Integracja
+            // obliczenie pozycji i orientacji robota
             x_ += v * std::cos(theta_) * dt;
             y_ += v * std::sin(theta_) * dt;
             theta_ += omega * dt;
@@ -41,7 +39,7 @@ OdometryNode::OdometryNode()
             auto odom = nav_msgs::msg::Odometry();
             odom.header.stamp = current_time;
             odom.header.frame_id = "odom";
-            odom.child_frame_id = "base_footprint";  // base_link
+            odom.child_frame_id = "base_footprint";
             odom.pose.pose.position.x = x_;
             odom.pose.pose.position.y = y_;
             odom.pose.pose.orientation.x = 0.0;
@@ -56,7 +54,7 @@ OdometryNode::OdometryNode()
             geometry_msgs::msg::TransformStamped tf_msg;
             tf_msg.header.stamp = current_time;
             tf_msg.header.frame_id = "odom";
-            tf_msg.child_frame_id = "base_footprint";  // base_link
+            tf_msg.child_frame_id = "base_footprint";
             tf_msg.transform.translation.x = x_;
             tf_msg.transform.translation.y = y_;
             tf_msg.transform.rotation.x = 0.0;
