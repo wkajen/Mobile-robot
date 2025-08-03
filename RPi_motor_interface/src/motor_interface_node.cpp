@@ -6,13 +6,13 @@ using boost::asio::serial_port_base;
 MotorInterfaceNode::MotorInterfaceNode()
     : Node("motor_interface_node"), io_(), serial_(io_), is_arduino_ready_(false)
 {
-    // Declare and get parameters
+    // Deklaracja parametrów
     this->declare_parameter<std::string>("port", "/dev/ttyUSB0");
     this->declare_parameter<int>("baudrate", 115200);
     this->get_parameter("port", port_);
     this->get_parameter("baudrate", baudrate_);
 
-    // Perform handshake
+    // wykonanie handshake
     handshake();
 
     // ROS interfaces
@@ -22,8 +22,10 @@ MotorInterfaceNode::MotorInterfaceNode()
 
     wheel_speed_pub_ = this->create_publisher<sensor_msgs::msg::JointState>("/wheel_speeds", 10);
     distance_pub_ = this->create_publisher<sensor_msgs::msg::Range>("/distance_sensor", 10);
+    lpg_pub_ = this->create_publisher<std_msgs::msg::Float32>("/gas_sensor/lpg", 10);
+    co_pub_ = this->create_publisher<std_msgs::msg::Float32>("/gas_sensor/co", 10);
+    smoke_pub_ = this->create_publisher<std_msgs::msg::Float32>("/gas_sensor/smoke", 10);
 
-    // timer_ = this->create_wall_timer(200ms, std::bind(&MotorInterfaceNode::readSerialData, this));
     timer_ = this->create_wall_timer(50ms, std::bind(&MotorInterfaceNode::readSerialData, this));
 }
 
@@ -40,7 +42,8 @@ void MotorInterfaceNode::handshake()
 
         boost::asio::write(serial_, boost::asio::buffer("HELLO\n"));
         RCLCPP_INFO(this->get_logger(), "Serial port '%s' opened and handshake sent.", port_.c_str());
-    } catch (const boost::system::system_error &e) 
+    } 
+    catch (const boost::system::system_error &e) 
     {
         RCLCPP_ERROR(this->get_logger(), "Failed to open serial port '%s': %s", port_.c_str(), e.what());
         rclcpp::shutdown();
@@ -70,10 +73,10 @@ void MotorInterfaceNode::readSerialData()
         std::string line;
         std::getline(is, line);
 
-        // Handle wheel speeds
-        if (line.rfind("S:", 0) == 0) 
+        // Obsługa stringa z Arduino
+        if (line.rfind("Data:", 0) == 0) 
         {
-            std::string data = line.substr(2);  // usuń "S:"
+            std::string data = line.substr(5);  // usuń "Data:"
             std::stringstream ss(data);
             std::string item;
             std::vector<std::string> parts;
@@ -91,7 +94,6 @@ void MotorInterfaceNode::readSerialData()
                 double s4 = std::stod(parts[3]);
 
                 auto msg = sensor_msgs::msg::JointState();
-                // msg.header.stamp = this->now();
                 msg.header.stamp = this->get_clock()->now();
                 msg.name = {"wheel_FL", "wheel_FR", "wheel_RL", "wheel_RR"};
                 msg.velocity = {s1, s2, s3, s4};
@@ -103,18 +105,37 @@ void MotorInterfaceNode::readSerialData()
                 double distance = std::stod(parts[4]);
 
                 auto msg = sensor_msgs::msg::Range();
-                // msg.header.stamp = this->now();
                 msg.header.stamp = this->get_clock()->now();
                 msg.header.frame_id = "distance_sensor";
                 msg.radiation_type = sensor_msgs::msg::Range::ULTRASOUND;
-                // msg.min_range = 2;   // [cm]
-                // msg.max_range = 200; // [cm]
+                msg.min_range = 0.02;   // [m]
+                msg.max_range = 2;      // [m]
                 msg.range = distance;
                 distance_pub_->publish(msg);
             }
+
+            if (parts.size() >= 8) 
+            {
+                float lpg = std::stod(parts[5]);
+                float co = std::stod(parts[6]);
+                float smoke = std::stod(parts[7]);
+
+                std_msgs::msg::Float32 lpg_msg;
+                lpg_msg.data = lpg;
+                lpg_pub_->publish(lpg_msg);
+
+                std_msgs::msg::Float32 co_msg;
+                co_msg.data = co;
+                co_pub_->publish(co_msg);
+
+                std_msgs::msg::Float32 smoke_msg;
+                smoke_msg.data = smoke;
+                smoke_pub_->publish(smoke_msg);
+            }
         }
 
-    } catch (const std::exception &e) 
+    } 
+    catch (const std::exception &e) 
     {
         RCLCPP_WARN(this->get_logger(), "Serial read error: %s", e.what());
     }
@@ -128,4 +149,3 @@ int main(int argc, char **argv)
     rclcpp::shutdown();
     return 0;
 }
-

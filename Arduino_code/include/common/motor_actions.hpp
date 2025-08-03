@@ -2,7 +2,7 @@
 #define MOTOR_ACTIONS_HPP
 
 #include <Arduino.h>
-#include <config.hpp>
+#include "config.hpp"
 
 class Motor
 {

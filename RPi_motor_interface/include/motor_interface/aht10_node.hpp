@@ -16,7 +16,6 @@ private:
     int fd_;
     uint8_t i2c_addr_;
     float temp_offset{50.0};
-    // float hum_offset{30.0};
 };
 
 class AHT10Node : public rclcpp::Node 

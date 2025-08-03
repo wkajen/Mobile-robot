@@ -3,6 +3,7 @@
 const unsigned int encoder_res = 20;
 const unsigned int count_interval_ms = 200;  // [ms]
 const unsigned int send_interval_ms = 50;    // [ms] 
+const unsigned int mq_interval_ms = 30000;    // [ms] 
 const unsigned int pid_interval = 100;       // [ms] 
 const double wheel_radius = 3.0;             // [cm]
 const double max_speed = 75.0;               // [cm/s]

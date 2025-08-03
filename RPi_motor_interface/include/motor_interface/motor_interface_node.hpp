@@ -5,7 +5,7 @@
 #include <geometry_msgs/msg/twist.hpp>
 #include <sensor_msgs/msg/joint_state.hpp>
 #include <sensor_msgs/msg/range.hpp>
-
+#include <std_msgs/msg/float32.hpp>
 #include <boost/asio.hpp>
 #include <boost/bind/bind.hpp>
 #include <string>
@@ -27,6 +27,10 @@ private:
     // publikacje
     rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr wheel_speed_pub_;
     rclcpp::Publisher<sensor_msgs::msg::Range>::SharedPtr distance_pub_;
+    rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr lpg_pub_;
+    rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr co_pub_;
+    rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr smoke_pub_;
+
 
     rclcpp::TimerBase::SharedPtr timer_;
 

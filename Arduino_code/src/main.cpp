@@ -1,9 +1,10 @@
 #include <Arduino.h>
 #include <PID_v1.h>
-#include <pin_structs.hpp>
-#include <config.hpp>
-#include <motor_actions.hpp>
-#include <functions.hpp>
+#include <MQ2.h>
+#include "common/pin_structs.hpp"
+#include "config.hpp"
+#include "common/motor_actions.hpp"
+#include "common/functions.hpp"
 
 // struktury do przechowywania wartości pinów dla każdego silnika,
 // jako argumenty przyjmują w kolejności: pin PWM, pin jazdy do przodu, pin dla jazdy do tyłu
@@ -20,6 +21,15 @@ const int encoder_left_rear_pin = A0;
 const int encoder_right_rear_pin = A1;
 const int encoder_left_front_pin = A2;
 const int encoder_right_front_pin = A3;
+
+// pin czujnika dymu i gazów
+const int mq2_pin = A7;
+
+// zmienne wyjściowe czujnika
+MQ2 mq2(mq2_pin);
+float lpg{0.0};
+float co{0.0}; 
+float smoke{0.0};
 
 // utworzenie obiektu klasy Motor dla każdego z czterech silników
 Motor motor_left_rear(motor_left_rear_pins.PWM, motor_left_rear_pins.forward, motor_left_rear_pins.backward, encoder_left_rear_pin);
@@ -75,7 +85,7 @@ counter_s counter;
 buffer_s buffer_speed;
 
 // nastawy PID
-const double KP = 0.85, KI = 0.2, KD = 0.005;  //  KP = 0.85, KD=0.01
+const double KP = 0.85, KI = 0.2, KD = 0.005;
 // instancje PID, jako argumenety po kolei: wejście, wyjście, wartość zadana, Kp, Ki, Kd
 PID leftRearSpeedPID(&motor_speed.smooth.left_rear, &motor_speed.out.left_rear, &motor_speed.set.left_rear, 0.65, 0.15, 0.01, DIRECT);
 PID rightRearSpeedPID(&motor_speed.smooth.right_rear, &motor_speed.out.right_rear, &motor_speed.set.right_rear, KP, KI, KD, DIRECT);
@@ -86,13 +96,14 @@ PID rightFrontSpeedPID(&motor_speed.smooth.right_front, &motor_speed.out.right_f
 void apply_velocity(float v_x, float v_y, float w); 
 void process_line(String line);
 void receive_data();
-void send_data(double left_front_speed, double right_front_speed, double left_rear_speed, double right_rear_speed, int distance);
+// void send_data(double left_front_speed, double right_front_speed, double left_rear_speed, double right_rear_speed, int distance);
 
 // zmienne globalne (ale widziane tylko w main)
 unsigned int buff_idx = 0;
 int distance{0};
 unsigned long last_send_time{0};
 unsigned long last_count_time{0};
+unsigned long last_mq_read_time_ms{0};
 unsigned long current_time{0};
 String input_buffer = "";
 
@@ -101,7 +112,6 @@ void setup()
 	if (is_serial_on)
 	{
 		Serial.begin(115200); 
-		// Serial.begin(9600);
 		Serial.println("READY");
 	}
 	// ustawienie typów (wejście, wyjście) dla I/O
@@ -122,6 +132,8 @@ void setup()
 	rightRearSpeedPID.SetOutputLimits(-255, 255);
 	leftFrontSpeedPID.SetOutputLimits(-255, 255);
 	rightFrontSpeedPID.SetOutputLimits(-255, 255);
+
+	mq2.begin();
 
 	delay(250);
 	last_send_time = last_count_time = millis();  // inicjalizacyjny pomiar czasu
@@ -146,7 +158,7 @@ void loop()
 		receive_data();
 	}
 	
-	// Wysyłanie danych w ustalonym interwale czasowym
+	// wykonanie pomiarów z czujników w określonych odstępach czasu
 	if(current_time - last_count_time >= count_interval_ms)
 	{
 		// przeliczenie ilości pulsów enkodera na prędkość liniową [cm/s]
@@ -156,21 +168,21 @@ void loop()
 			motor_speed.raw.left_rear = (double)counter.left_rear * tick_mul * (1000.0/count_interval_ms);
 		else
 			motor_speed.raw.left_rear = 0.0;
+
 		if (motor_speed.set.right_rear < -1.0)
 			motor_speed.raw.right_rear = -(double)counter.right_rear * tick_mul * (1000.0/count_interval_ms);
 		else if (motor_speed.set.right_rear > 1.0)
-		{
 			motor_speed.raw.right_rear = (double)counter.right_rear * tick_mul * (1000.0/count_interval_ms); 
-			motor_speed.raw.right_rear -= 2.0;
-		}
 		else
 			motor_speed.raw.right_rear = 0.0;
+
 		if (motor_speed.set.left_front < -1.0)
 			motor_speed.raw.left_front = -(double)counter.left_front * tick_mul * (1000.0/count_interval_ms); 
 		else if (motor_speed.set.left_front > 1.0)
 			motor_speed.raw.left_front = (double)counter.left_front * tick_mul * (1000.0/count_interval_ms); 
 		else
 			motor_speed.raw.left_front = 0.0;
+
 		if (motor_speed.set.right_front < -1.0)
 			motor_speed.raw.right_front = -(double)counter.right_front * tick_mul * (1000.0/count_interval_ms);
 		else if (motor_speed.set.right_front > 1.0)
@@ -183,12 +195,6 @@ void loop()
 		buffer_speed.right_rear[buff_idx] = motor_speed.raw.right_rear;
 		buffer_speed.left_front[buff_idx] = motor_speed.raw.left_front;
 		buffer_speed.right_front[buff_idx] = motor_speed.raw.right_front;
-
-		// wpisanie do bufora surowej prędkości
-		// buffer_speed.left_rear[buff_idx] = (double)counter.left_rear * tick_mul * (1000.0/send_interval_ms);      // [cm/s]
-		// buffer_speed.right_rear[buff_idx] = (double)counter.right_rear * tick_mul * (1000.0/send_interval_ms);    // [cm/s]
-		// buffer_speed.left_front[buff_idx] = (double)counter.left_front * tick_mul * (1000.0/send_interval_ms);    // [cm/s]
-		// buffer_speed.right_front[buff_idx] = (double)counter.right_front * tick_mul * (1000.0/send_interval_ms);  // [cm/s]
 
 		motor_speed.smooth.left_rear = 0.0;
 		motor_speed.smooth.right_rear = 0.0;
@@ -214,21 +220,31 @@ void loop()
 		// wyzerowanie liczników pulsów
 		counter.left_rear = counter.right_rear = counter.left_front = counter.right_front = 0;
 
+		// pomiar odległości
 		distance = getDistance();
-		// Serial.print("Count dt = ");
-		// Serial.println(current_time - last_count_time);
+
 		last_count_time = current_time;
 	}
 
+	// pomiary czujnika gazów w określonych odstępach czasowych
+	if (current_time - last_mq_read_time_ms >= mq_interval_ms)
+	{
+		lpg = mq2.readLPG();
+		co = mq2.readCO();
+		smoke = mq2.readSmoke();
+
+		last_mq_read_time_ms = current_time;
+	}
+
+	// wysyłanie danych do RPi w ustalonym interwale czasowym
 	if(current_time - last_send_time >= send_interval_ms)
 	{
 		// wysłanie danych do RPi
-		send_data(motor_speed.smooth.left_front, motor_speed.smooth.right_front, motor_speed.smooth.left_rear, motor_speed.smooth.right_rear, distance);
-		// Serial.print("Send dt = ");
-		// Serial.println(current_time - last_send_time);
+		sendData(motor_speed.smooth.left_front, motor_speed.smooth.right_front, motor_speed.smooth.left_rear, motor_speed.smooth.right_rear, distance, lpg, co, smoke);
 		last_send_time = current_time;
 	}
 
+	// hamowanie awaryjne przed przeszkodą
 	if (distance < dist_thr)
 	{
 		motor_speed.smooth.left_rear = 0.0;

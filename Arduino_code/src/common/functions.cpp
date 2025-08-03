@@ -1,7 +1,7 @@
 #include <Arduino.h>
-#include <functions.hpp>
-#include <pin_structs.hpp>
-#include <config.hpp>
+#include "common/functions.hpp"
+#include "common/pin_structs.hpp"
+#include "config.hpp"
 
 void pinOutSetting()
 {
@@ -61,7 +61,7 @@ int getDistance()
     digitalWrite(dist_sensor.trig_pin, LOW);
 
     time = pulseIn(dist_sensor.echo_pin, HIGH);
-    return (int) (time / 58);  // działanie, aby otrzymać wynik w [cm]  
+    return (int) (time / 58);  // działanie z dokumentacji, aby otrzymać wynik w [cm]  
 }
 
 void countPulses(int encoder_pin, unsigned int &pulses_num, bool &last_state) 
@@ -76,15 +76,16 @@ void countPulses(int encoder_pin, unsigned int &pulses_num, bool &last_state)
     last_state = current_state;
 }
 
-void send_data(double left_front_speed_cm, double right_front_speed_cm, double left_rear_speed_cm, double right_rear_speed_cm, int distance_cm) 
+void sendData(double left_front_speed_cm, double right_front_speed_cm, double left_rear_speed_cm, double right_rear_speed_cm, int distance_cm, float lpg, float co, float smoke) 
 {
-	double left_front_speed_m = left_front_speed_cm / 100.0;
-	double right_front_speed_m = right_front_speed_cm / 100.0;
-	double left_rear_speed_m = left_rear_speed_cm / 100.0;
-	double right_rear_speed_m = right_rear_speed_cm / 100.0;
-	double distance_m = distance_cm / 100.0;
+    // Konwersja na metry - dla algorytmu SLAM na RPi
+	double left_front_speed_m = left_front_speed_cm * 0.01;
+	double right_front_speed_m = right_front_speed_cm * 0.01;
+	double left_rear_speed_m = left_rear_speed_cm * 0.01;
+	double right_rear_speed_m = right_rear_speed_cm * 0.01;
+	double distance_m = distance_cm * 0.01;
 
-    Serial.print("S:");
+    Serial.print("Data:");
     Serial.print(left_front_speed_m);
     Serial.print(",");
     Serial.print(right_front_speed_m);
@@ -94,5 +95,11 @@ void send_data(double left_front_speed_cm, double right_front_speed_cm, double l
     Serial.print(right_rear_speed_m);
     Serial.print(",");
     Serial.print(distance_m);
+    Serial.print(",");
+    Serial.print(lpg, 4);
+    Serial.print(",");
+    Serial.print(co, 4);
+    Serial.print(",");
+    Serial.print(smoke, 4);
     Serial.println();
 }

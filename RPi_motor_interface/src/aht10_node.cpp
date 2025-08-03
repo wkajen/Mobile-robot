@@ -10,7 +10,7 @@
 
 using namespace std::chrono_literals;
 
-// ------------- AHT10Sensor Class --------------
+// ------------- klasa AHT10Sensor --------------
 
 AHT10Sensor::AHT10Sensor(const std::string& i2c_device, uint8_t addr)
     : i2c_addr_(addr)
@@ -31,6 +31,7 @@ AHT10Sensor::AHT10Sensor(const std::string& i2c_device, uint8_t addr)
     usleep(200000); // 200 ms
 }
 
+// destruktor
 AHT10Sensor::~AHT10Sensor() 
 {
     if (fd_ >= 0) 
@@ -47,7 +48,8 @@ bool AHT10Sensor::readSensor(float& temperature, float& humidity)
 {
     uint8_t measure_cmd[3] = { 0xAC, 0x33, 0x00 };
 
-    if (write(fd_, measure_cmd, 3) != 3) {
+    if (write(fd_, measure_cmd, 3) != 3) 
+    {
         perror("Failed to write measure command");
         return false;
     }
@@ -55,7 +57,8 @@ bool AHT10Sensor::readSensor(float& temperature, float& humidity)
     usleep(500000); // 500 ms
 
     uint8_t data[6] = {0};
-    if (read(fd_, data, 6) != 6) {
+    if (read(fd_, data, 6) != 6) 
+    {
         perror("Failed to read sensor data");
         return false;
     }
@@ -69,7 +72,7 @@ bool AHT10Sensor::readSensor(float& temperature, float& humidity)
     return true;
 }
 
-/* AHT10Node implementation */
+/* implementacja AHT10 Node */
 
 AHT10Node::AHT10Node()
     : Node("aht10_sensor_node"), sensor_("/dev/i2c-1", 0x38)
@@ -101,7 +104,7 @@ void AHT10Node::readAndPublish()
         hum_msg.variance = 0.0;
         hum_pub_->publish(hum_msg);
 
-        // uncomment to get readings in terminal
+        /* Odkomentować tylko do testów */
         // RCLCPP_INFO(this->get_logger(), "Temp: %.2f C, Humidity: %.1f %%", temp, hum);
 
         if (temp > 30.0 || hum > 75.0) 

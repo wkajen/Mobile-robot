@@ -3,15 +3,12 @@
 OdometryNode::OdometryNode()
     : Node("odometry_node"), x_(0.0), y_(0.0), theta_(0.0)
 {
-    // this->declare_parameter("wheel_radius", 0.03);  // [m]
     this->declare_parameter("wheel_base", 0.17);     // odległość osi [m]
-    // double wheel_radius = this->get_parameter("wheel_radius").as_double();
     double wheel_base = this->get_parameter("wheel_base").as_double();
 
     joint_sub_ = this->create_subscription<sensor_msgs::msg::JointState>
     (
         "/wheel_speeds", 10, 
-        // [this, wheel_radius, wheel_base](const sensor_msgs::msg::JointState::SharedPtr msg) 
         [this, wheel_base](const sensor_msgs::msg::JointState::SharedPtr msg) 
         {
             rclcpp::Time current_time = this->get_clock()->now();
@@ -23,14 +20,15 @@ OdometryNode::OdometryNode()
 
             double dt = (current_time - last_time_).seconds();
 
-            // w wiadomości msg->velocity są kolejno koła: 0:wheel_FL, 1:wheel_FR, 2:wheel_RL, 3:wheel_RR 
-            double v_l = (msg->velocity[0] + msg->velocity[2]) / 2.0;   // średnia prędkość lewych kół
-            double v_r = (msg->velocity[1] + msg->velocity[3]) / 2.0;   // średnia prędkość prawych kół
+            // w wiadomości są kolejno koła: wheel_FL, wheel_FR, wheel_RL, wheel_RR 
+            double v_l = (msg->velocity[0] + msg->velocity[2]) / 2.0;
+            double v_r = (msg->velocity[1] + msg->velocity[3]) / 2.0;
 
-            double v = (v_r + v_l) / (2.0);                             // średnia prędkość liniowa robota [m/s]
-            double omega = (v_r - v_l) / (wheel_base);                  // średnia prędkość kątowa robota [rad/s]
+            // Prędkość liniowa i kątowa robota -> uśrednienie [m/s]
+            double v = (v_r + v_l) / (2.0);
+            double omega = (v_r - v_l) / (wheel_base);
 
-            // obliczenie pozycji i orientacji robota
+            // Integracja
             x_ += v * std::cos(theta_) * dt;
             y_ += v * std::sin(theta_) * dt;
             theta_ += omega * dt;
@@ -39,7 +37,7 @@ OdometryNode::OdometryNode()
             auto odom = nav_msgs::msg::Odometry();
             odom.header.stamp = current_time;
             odom.header.frame_id = "odom";
-            odom.child_frame_id = "base_footprint";
+            odom.child_frame_id = "base_footprint";  // pierwotnie base_link
             odom.pose.pose.position.x = x_;
             odom.pose.pose.position.y = y_;
             odom.pose.pose.orientation.x = 0.0;
@@ -54,7 +52,7 @@ OdometryNode::OdometryNode()
             geometry_msgs::msg::TransformStamped tf_msg;
             tf_msg.header.stamp = current_time;
             tf_msg.header.frame_id = "odom";
-            tf_msg.child_frame_id = "base_footprint";
+            tf_msg.child_frame_id = "base_footprint";  // pierwotnie base_link
             tf_msg.transform.translation.x = x_;
             tf_msg.transform.translation.y = y_;
             tf_msg.transform.rotation.x = 0.0;
